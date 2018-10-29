@@ -38,6 +38,8 @@
 pub mod point;
 pub mod vlr;
 pub mod header;
+#[allow(missing_docs)]
+pub mod extrabytes;
 
 pub use self::header::Header;
 pub use self::point::Point;
