@@ -4,8 +4,11 @@ use {Color, Result};
 use point::{Classification, Error, Format, ScanDirection};
 use std::io::{Read, Write};
 
+
 const SCAN_ANGLE_SCALE_FACTOR: f32 = 0.006;
 const OVERLAP_CLASSIFICATION_CODE: u8 = 12;
+
+
 
 /// A raw point.
 ///
