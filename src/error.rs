@@ -1,4 +1,5 @@
 use {Transform, Version, header, point, reader, vlr, writer};
+use raw::extrabytes;
 use std::io;
 use std::str;
 
@@ -83,6 +84,14 @@ quick_error! {
             cause(err)
             description("vlr error")
             display("vlr error: {}", err)
+        }
+
+        /// Wrapper around `las::raw::extrabytes::Error`
+        ExtraBytes(err: extrabytes::Error) {
+            from()
+            cause(err)
+            description("Extra-byte error")
+            display("extra-byte error: {}", err)
         }
     }
 }

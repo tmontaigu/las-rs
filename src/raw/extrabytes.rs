@@ -6,7 +6,20 @@ use Result;
 use vlr::Vlr;
 use utils::AsLasStr;
 
+quick_error! {
+    /// ExtraBytes-specific errors
+    #[derive(Debug)]
+    pub enum Error {
+        ExtraDimensionNotFound(name: String) {
+            description("The name does not correspond to one of the extra dimensions")
+            display("No extra dimension with name {} found", name)
+        }
 
+        CastError {
+            description("Cannot cast to requested type")
+        }
+    }
+}
 
 #[allow(missing_docs)]
 #[allow(dead_code)]
@@ -102,7 +115,6 @@ pub struct ExtraBytes {
 
 fn read_extra(rdr: &mut Cursor<Vec<u8>>, t: ExtraDimTypes) -> std::io::Result<DimensionValue> {
     match t {
-        // No little endian for u8 & i8 ?¿
         ExtraDimTypes::U8 => Ok(DimensionValue::U8(rdr.read_u8()?)),
         ExtraDimTypes::U16 => Ok(DimensionValue::U16(rdr.read_u16::<LittleEndian>()?)),
         ExtraDimTypes::U32 => Ok(DimensionValue::U32(rdr.read_u32::<LittleEndian>()?)),
@@ -264,31 +276,31 @@ impl ExtraBytesParser {
         Ok((corresponding_eb, offset))
     }
 
-    //TODO Urgent: Fix error handling
     //TODO try BufReader
     //TODO apply scale + offset
     //TODO handle special case: 0 as DataType
+    //TODO make it more rusty
     pub fn get_field(&self, bytes: &Vec<u8>, name: &str) -> Result<DimensionValue> {
         let mut rdr = Cursor::new(bytes.clone());
         let (corresponding_eb, offset) = self.offset_of_dim(&name)?;
         rdr.seek(SeekFrom::Start(offset))?;
 
         if !corresponding_eb.is_some() {
-            return Err(error::Error::NotAscii("lol".to_string()).into());
+            return Err(Error::ExtraDimensionNotFound(name.to_string()).into());
         }
         match read_extra(&mut rdr, corresponding_eb.unwrap().data_type()) {
             Ok(v) => Ok(v),
-            Err(_) => Err(error::Error::NotAscii("lol".to_string()).into()),
+            Err(e) => Err(error::Error::Io(e).into())
         }
     }
 
     pub fn get_field_as<T: Num + NumCast>(&self, bytes: &Vec<u8>, name: &str) -> Result<T> {
-        let value = self.get_field(bytes, name);
-        let value = cast_extra::<T>(value.unwrap());
+        let value = self.get_field(bytes, name)?;
+        let value = cast_extra::<T>(value);
 
         match value {
             Some(v) => Ok(v),
-            None => Err(error::Error::NotAscii("lol".to_string()).into())
+            None => Err(Error::CastError.into())
         }
     }
 }
