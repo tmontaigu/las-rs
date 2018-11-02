@@ -2,11 +2,10 @@ use num::{Num, NumCast, cast};
 use error;
 use std::io::{Read, Cursor, SeekFrom, Seek};
 use byteorder::{ReadBytesExt, LittleEndian};
-use point::Error;
 use Result;
 use vlr::Vlr;
+use utils::AsLasStr;
 
-use std::collections::HashMap;
 
 
 #[allow(missing_docs)]
@@ -202,17 +201,10 @@ impl RawExtraByteStruct {
         Ok(ebs)
     }
 
-    pub fn name(&self) -> String {
-        let mut first_zero = 0;
-        for c in &self.name {
-            if *c == 0 {
-                break;
-            }
-            first_zero += 1;
-        }
-        let mut name = String::from_utf8_lossy(&self.name).to_string();
-        name.truncate(first_zero);
-        name
+    pub fn name(&self) -> Result<String> {
+        let tmp_ref = self.name.as_ref();
+        let tmp_str = tmp_ref.as_las_str()?;
+        Ok(tmp_str.to_string())
     }
 
     pub fn data_type(&self) -> ExtraDimTypes {
@@ -259,17 +251,17 @@ impl ExtraBytesParser {
         Some(ExtraBytesParser{ebss: ebs_vec})
     }
 
-    fn offset_of_dim(&self, name: &str) -> (Option<&RawExtraByteStruct>, u64) {
+    fn offset_of_dim(&self, name: &str) -> Result<(Option<&RawExtraByteStruct>, u64)> {
         let mut offset = 0_u64;
         let mut corresponding_eb: Option<&RawExtraByteStruct> = None;
         for ebs in &self.ebss {
-            if ebs.name() == name {
+            if ebs.name()? == name {
                 corresponding_eb = Some(ebs);
                 break;
             }
             offset += ebs.data_type().size() as u64;
         }
-        (corresponding_eb, offset)
+        Ok((corresponding_eb, offset))
     }
 
     //TODO Urgent: Fix error handling
@@ -278,7 +270,7 @@ impl ExtraBytesParser {
     //TODO handle special case: 0 as DataType
     pub fn get_field(&self, bytes: &Vec<u8>, name: &str) -> Result<DimensionValue> {
         let mut rdr = Cursor::new(bytes.clone());
-        let (corresponding_eb, offset) = self.offset_of_dim(&name);
+        let (corresponding_eb, offset) = self.offset_of_dim(&name)?;
         rdr.seek(SeekFrom::Start(offset))?;
 
         if !corresponding_eb.is_some() {
